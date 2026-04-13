@@ -5,7 +5,7 @@ st.set_page_config(page_title="Search Data", layout="wide")
 
 @st.cache_data
 def load_data():
-    return pd.read_excel("data/Ocean_Open_Data_Master_APDRC_Added.xlsx")
+    return pd.read_excel("data/Ocean_Open_Data_Template.xlsx")
 
 df = load_data()
 
