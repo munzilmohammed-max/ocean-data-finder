@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
+import html
 from pathlib import Path
 
 # --- Page Config ---
 st.set_page_config(page_title="Search Data", layout="wide")
 
 # --- Data location -----------------------------------------------------------
-# Path built relative to the repo, so it works locally AND on Streamlit Cloud.
-# pages/ is one level below the repo root, so go up one (.parent.parent).
 DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "Ocean_Open_Data_Finder.xlsx"
 GLOBAL_SHEET = "GLOBAL_DATASETS"
 INDIAN_OCEAN_SHEET = "INDIAN_OCEAN_DATASETS"
@@ -85,8 +84,20 @@ filtered = filtered.sort_values(by="Dataset_Name")
 # --- Results count ---
 st.info(f"{len(filtered)} datasets found  ·  Coverage: {scope}")
 
+# --- Colour maps -------------------------------------------------------------
+CATEGORY_COLOR = {
+    "Physics": "#185FA5",
+    "Biogeochemistry": "#0F6E56",
+    "Biology/Ecology": "#534AB7",
+    "Cryosphere": "#0C447C",
+}
+SKILL_PILL = {
+    "Beginner": ("#EAF3DE", "#27500A"),
+    "Intermediate": ("#FAEEDA", "#633806"),
+    "Advanced": ("#FCEBEB", "#791F1F"),
+}
 
-# --- Icon Function ---
+
 def get_icon(variable):
     var = str(variable).lower()
     if "temp" in var or "sst" in var:
@@ -115,57 +126,90 @@ def field(row, col):
     return col in row.index and pd.notna(row[col]) and str(row[col]).strip() != ""
 
 
+def esc(v):
+    return html.escape(str(v)) if pd.notna(v) else ""
+
+
+def pill(text, bg, fg):
+    return (
+        f'<span style="font-size:12px; background:{bg}; color:{fg}; '
+        f'padding:3px 9px; border-radius:8px; white-space:nowrap;">{esc(text)}</span>'
+    )
+
+
+def render_card(row):
+    cat = str(row.get("Category", "")).strip()
+    accent = CATEGORY_COLOR.get(cat, "#5F5E5A")
+    icon = get_icon(row["Variable"])
+
+    # metadata line: Source · Region · Resolution · Coverage
+    meta_bits = [row.get("Source"), row.get("Region"),
+                 row.get("Spatial_Resolution"), row.get("Time_Coverage")]
+    meta = " · ".join(esc(b) for b in meta_bits if pd.notna(b) and str(b).strip())
+
+    # pills
+    pills = []
+    if field(row, "Skill_Level"):
+        bg, fg = SKILL_PILL.get(str(row["Skill_Level"]).strip(), ("#F1EFE8", "#444441"))
+        pills.append(pill(row["Skill_Level"], bg, fg))
+    if field(row, "Latency"):
+        pills.append(pill(row["Latency"], "#E6F1FB", "#0C447C"))
+    if field(row, "Format"):
+        pills.append(pill(row["Format"], "#F1EFE8", "#444441"))
+    if field(row, "Login_Required") and str(row["Login_Required"]).lower() == "yes":
+        pills.append(pill("Login", "#FAEEDA", "#633806"))
+    pills_html = "".join(pills)
+
+    link_html = ""
+    if field(row, "Link"):
+        link_html = (
+            f'<a href="{esc(row["Link"])}" target="_blank" '
+            f'style="display:inline-block; margin-top:10px; font-size:13px; '
+            f'color:{accent}; text-decoration:none;">🔗 Open dataset</a>'
+        )
+
+    return (
+        f'<div style="background:var(--background-color,#fff); '
+        f'border:0.5px solid rgba(120,120,120,0.25); '
+        f'border-left:3px solid {accent}; border-radius:0; '
+        f'padding:14px 16px; margin-bottom:12px;">'
+        f'<div style="font-weight:600; font-size:15px; margin-bottom:4px;">'
+        f'{icon} {esc(row["Dataset_Name"])}</div>'
+        f'<div style="font-size:13px; opacity:0.7; margin-bottom:10px;">{meta}</div>'
+        f'<div style="display:flex; gap:6px; flex-wrap:wrap;">{pills_html}</div>'
+        f'{link_html}'
+        f'</div>'
+    )
+
+
 # --- GRID LAYOUT (2 columns) ---
 cols = st.columns(2)
 
 for i, (_, row) in enumerate(filtered.iterrows()):
     col = cols[i % 2]
     with col:
-        with st.container(border=True):
-            icon = get_icon(row["Variable"])
-            st.markdown(f"### {icon} {row['Dataset_Name']}")
-
-            badges = []
-            if field(row, "Skill_Level"):
-                badges.append(f"🎓 {row['Skill_Level']}")
-            if field(row, "Latency"):
-                badges.append(f"⏱️ {row['Latency']}")
-            if field(row, "Login_Required") and str(row["Login_Required"]).lower() == "yes":
-                badges.append("🔑 Login")
-            if badges:
-                st.caption("  ·  ".join(badges))
-
-            st.write(f"**Source:** {row['Source']}")
-            st.write(f"**Resolution:** {row['Spatial_Resolution']}")
-            st.write(f"**Time:** {row['Time_Coverage']}")
-            st.write(f"**Region:** {row['Region']}")
-            st.write(f"**Platform:** {row['Platform']}")
-            st.write(f"**Format:** {row['Format']}")
-
-            with st.expander("📊 More Details"):
-                if field(row, "Use_Case"):
-                    st.write(f"**Use Case:** {row['Use_Case']}")
-                if field(row, "Depth"):
-                    st.write(f"**Depth:** {row['Depth']}")
-                if field(row, "Temporal_Resolution"):
-                    st.write(f"**Temporal Res:** {row['Temporal_Resolution']}")
-                if field(row, "Update_Frequency"):
-                    st.write(f"**Update Frequency:** {row['Update_Frequency']}")
-                if field(row, "Tools"):
-                    st.write(f"**Suggested tools:** {row['Tools']}")
-                if field(row, "License"):
-                    st.write(f"**License:** {row['License']}")
-                if field(row, "DOI"):
-                    st.write(f"**DOI:** {row['DOI']}")
-                if field(row, "Citation"):
-                    st.write(f"**Citation:** {row['Citation']}")
-                if field(row, "Link_Checked"):
-                    st.write(f"**Link last recorded:** {row['Link_Checked']}")
-                if field(row, "Notes"):
-                    st.write(f"**Notes:** {row['Notes']}")
-
-            if field(row, "Link"):
-                st.markdown(f"[🔗 Open Dataset]({row['Link']})")
+        st.markdown(render_card(row), unsafe_allow_html=True)
+        with st.expander("📊 More details"):
+            if field(row, "Use_Case"):
+                st.write(f"**Use Case:** {row['Use_Case']}")
+            if field(row, "Depth"):
+                st.write(f"**Depth:** {row['Depth']}")
+            if field(row, "Temporal_Resolution"):
+                st.write(f"**Temporal Res:** {row['Temporal_Resolution']}")
+            if field(row, "Update_Frequency"):
+                st.write(f"**Update Frequency:** {row['Update_Frequency']}")
+            if field(row, "Tools"):
+                st.write(f"**Suggested tools:** {row['Tools']}")
+            if field(row, "License"):
+                st.write(f"**License:** {row['License']}")
+            if field(row, "DOI"):
+                st.write(f"**DOI:** {row['DOI']}")
+            if field(row, "Citation"):
+                st.write(f"**Citation:** {row['Citation']}")
+            if field(row, "Link_Checked"):
+                st.write(f"**Link last recorded:** {row['Link_Checked']}")
+            if field(row, "Notes"):
+                st.write(f"**Notes:** {row['Notes']}")
 
 # --- Comparison Output ---
 if len(compare_list) >= 2:
