@@ -169,13 +169,15 @@ def render_card(row):
         )
 
     return (
-        f'<div style="background:var(--background-color,#fff); '
-        f'border:0.5px solid rgba(120,120,120,0.25); '
+        f'<div style="background:rgba(128,128,128,0.06); '
+        f'border:0.5px solid rgba(128,128,128,0.25); '
         f'border-left:3px solid {accent}; border-radius:0; '
         f'padding:14px 16px; margin-bottom:12px;">'
-        f'<div style="font-weight:600; font-size:15px; margin-bottom:4px;">'
+        f'<div style="font-weight:600; font-size:15px; margin-bottom:4px; '
+        f'color:var(--text-color, inherit);">'
         f'{icon} {esc(row["Dataset_Name"])}</div>'
-        f'<div style="font-size:13px; opacity:0.7; margin-bottom:10px;">{meta}</div>'
+        f'<div style="font-size:13px; margin-bottom:10px; '
+        f'color:var(--text-color, inherit); opacity:0.65;">{meta}</div>'
         f'<div style="display:flex; gap:6px; flex-wrap:wrap;">{pills_html}</div>'
         f'{link_html}'
         f'</div>'
